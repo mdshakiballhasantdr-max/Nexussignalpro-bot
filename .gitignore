@@ -1,0 +1,5 @@
+open_trades.json
+performance_log.csv
+__pycache__/
+*.pyc
+.env
