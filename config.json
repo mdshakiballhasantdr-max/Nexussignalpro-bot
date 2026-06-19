@@ -1,0 +1,26 @@
+{
+  "symbols": {
+    "XAUUSD": {
+      "type": "twelvedata",
+      "td_symbol": "XAU/USD",
+      "display": "XAUUSD (Gold)"
+    },
+    "BTCUSD": {
+      "type": "binance",
+      "binance_symbol": "BTCUSDT",
+      "td_fallback_symbol": "BTC/USD",
+      "display": "BTCUSD (Bitcoin)"
+    }
+  },
+
+  "swing_lookback": 3,
+  "min_risk_reward": 2.0,
+  "sl_buffer_atr_mult": 0.25,
+  "require_killzone": true,
+
+  "price_check_interval_sec": 180,
+  "signal_check_interval_sec": 300,
+
+  "daily_summary_hour": 23,
+  "daily_summary_minute": 55
+}
