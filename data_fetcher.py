@@ -1,3 +1,5 @@
+""" XAUUSD এর জন্য Twelve Data API এবং BTCUSD এর জন্য Binance API থেকে candle ডেটা ও লাইভ প্রাইস আনার মডিউল। কোনো pandas/numpy লাগে না — শুধু plain Python list-of-dict ব্যবহার হয়, যাতে Termux-এ ভারী কম্পাইলেশনের ঝামেলা (pandas বিল্ড) এড়ানো যায়। প্রতিটা candle: {"open": float, "high": float, "low": float, "close": float} candle লিস্ট পুরাতন থেকে নতুন (chronological ascending) ক্রমে থাকে। """
+
 import requests
 from datetime import datetime, timezone
 
@@ -17,11 +19,13 @@ def get_binance_klines(binance_symbol: str, interval: str, limit: int = 300):
         raw = resp.json()
         return [
             {
-                "time": float(c[0]) / 1000.0,
+                "time": float(c[0]) / 1000.0,  # ms -> seconds (UTC epoch)
                 "open": float(c[1]),
                 "high": float(c[2]),
                 "low": float(c[3]),
                 "close": float(c[4]),
+                "volume": float(c[5]),
+                "taker_buy_volume": float(c[9]),  # order-flow proxy: আক্রমণাত্মক buy ভলিউম
             }
             for c in raw
         ]
@@ -57,7 +61,7 @@ def get_twelvedata_klines(td_symbol: str, interval: str, api_key: str, outputsiz
         if data.get("status") == "error" or "values" not in data:
             print(f"[data_fetcher] Twelve Data error: {data}")
             return None
-        values = list(reversed(data["values"]))
+        values = list(reversed(data["values"]))  # পুরাতন -> নতুন ক্রমে
         result = []
         for v in values:
             try:
@@ -93,6 +97,7 @@ def fetch_candles(symbol_cfg: dict, interval: str, api_key: str, limit: int = 30
         result = get_binance_klines(symbol_cfg["binance_symbol"], interval, limit)
         if result is not None:
             return result
+        # Binance অনুপলব্ধ/ব্লক হলে — Twelve Data দিয়ে fallback (একই API key, নতুন কিছু লাগবে না)
         fallback_symbol = symbol_cfg.get("td_fallback_symbol")
         if fallback_symbol:
             print("[data_fetcher] Binance ব্যর্থ, Twelve Data fallback ব্যবহার হচ্ছে...")
