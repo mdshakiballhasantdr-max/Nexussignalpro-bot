@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from data_fetcher import fetch_candles
 from smc_strategy import generate_signal
+from tier_b_strategy import generate_tier_b_signal
 
 with open("config.json", "r", encoding="utf-8") as f:
     CONFIG = json.load(f)
@@ -86,6 +87,7 @@ def simulate_symbol(symbol, symbol_cfg):
                     r_mult = 0.0
                 trades.append({
                     "symbol": symbol,
+                    "tier": open_pos.get("tier", "A"),
                     "direction": open_pos["direction"],
                     "entry": round(open_pos["entry"], 4),
                     "result": status,
@@ -99,12 +101,15 @@ def simulate_symbol(symbol, symbol_cfg):
         m15_slice = m15[: i + 1]
         try:
             signal = generate_signal(h1_slice, m15_slice, CONFIG)
+            if signal is None:
+                signal = generate_tier_b_signal(h1_slice, m15_slice, CONFIG)
         except Exception as e:
             print(f"[backtest] স্ট্র্যাটেজি এরর: {e}")
             signal = None
 
         if signal:
             open_pos = {
+                "tier": signal.get("tier", "A"),
                 "direction": signal["direction"],
                 "entry": signal["entry"],
                 "sl": signal["sl"],
@@ -143,7 +148,7 @@ def print_report(all_trades):
     for sym in sorted(set(t["symbol"] for t in all_trades)):
         sym_trades = [t for t in all_trades if t["symbol"] == sym]
         total, wins, losses, win_rate, total_r, avg_r, pf = stats_for(sym_trades)
-        print(f"\n--- {sym} ---")
+        print(f"\n--- {sym} (Tier A+B মিলিয়ে) ---")
         print(f"মোট ট্রেড: {total}")
         print(f"Win / Loss: {wins} / {losses}")
         print(f"Win rate: {win_rate:.1f}%")
@@ -151,8 +156,15 @@ def print_report(all_trades):
         print(f"গড় R/ট্রেড: {avg_r:.2f}R")
         print(f"Profit factor: {pf:.2f}")
 
+        for tier in ("A", "B"):
+            tier_trades = [t for t in sym_trades if t.get("tier", "A") == tier]
+            if not tier_trades:
+                continue
+            tt_, tw, tl, twr, ttr, tar, tpf = stats_for(tier_trades)
+            print(f" Tier {tier}: {tt_} ট্রেড, win rate {twr:.1f}%, মোট {ttr:.2f}R")
+
     total, wins, losses, win_rate, total_r, avg_r, pf = stats_for(all_trades)
-    print("\n--- সব মিলিয়ে ---")
+    print("\n--- সব মিলিয়ে (XAUUSD+BTCUSD, Tier A+B) ---")
     print(f"মোট ট্রেড: {total}")
     print(f"Win / Loss: {wins} / {losses}")
     print(f"Win rate: {win_rate:.1f}%")
@@ -163,7 +175,7 @@ def print_report(all_trades):
 
     with open("backtest_results.csv", "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
-            f, fieldnames=["symbol", "direction", "entry", "result", "r_multiple", "opened_at", "closed_at"]
+            f, fieldnames=["symbol", "tier", "direction", "entry", "result", "r_multiple", "opened_at", "closed_at"]
         )
         writer.writeheader()
         for t in all_trades:
